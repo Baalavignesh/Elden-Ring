@@ -1,0 +1,20 @@
+{
+  "name": "Radagon & Rennala",
+  "children": [
+    {
+      "name": "Radahn",
+      "title": "Starscourge General",
+      "description": "Demigod and general of Redmane Castle"
+    },
+    {
+      "name": "Rykard",
+      "title": "Lord of Blasphemy",
+      "description": "Demigod who became the God-Devouring Serpent"
+    },
+    {
+      "name": "Ranni",
+      "title": "The Witch",
+      "description": "Demigod who orchestrated the Night of Black Knives"
+    }
+  ]
+}
