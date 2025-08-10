@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import * as d3 from "d3";
 import { familyData, type FamilyDefinition, type FamilyNode as Node } from "../constants/family";
 
@@ -14,7 +14,7 @@ const FIT_PADDING = 40;
 const STYLES = {
   node: {
     fill: "#2a2a2a",
-    textFill: "#ffffff",
+    textFill: "#666666", // Changed to gray for less brightness
     font: "14px 'Mantinia', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
   },
   connector: {
@@ -262,6 +262,47 @@ function FamilyTree() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasRenderer | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  
+  // State for 3D tilt effect
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  // Handle mouse movement for 3D tilt effect
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!containerRef.current) return;
+    
+    // Cancel any pending animation frame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    animationFrameRef.current = requestAnimationFrame(() => {
+      const rect = containerRef.current!.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      
+      // Calculate mouse position relative to center (-1 to 1)
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const normalizedX = (mouseX - centerX) / centerX;
+      const normalizedY = (mouseY - centerY) / centerY;
+      
+      // Apply tilt (max 5 degrees for more subtle effect)
+      const maxTilt = 5;
+      setTilt({
+        x: -normalizedY * maxTilt, // Negative for natural tilt direction
+        y: normalizedX * maxTilt
+      });
+    });
+  }, []);
+
+  // Reset tilt when mouse leaves
+  const handleMouseLeave = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    setTilt({ x: 0, y: 0 });
+  }, []);
 
   // Process data once
   const { nodes, nodeMap, contentBounds } = useMemo(() => {
@@ -400,15 +441,33 @@ function FamilyTree() {
       window.removeEventListener("resize", handleResize);
       selection.on(".zoom", null);
       renderer.destroy();
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [nodes, nodeMap, contentBounds]);
 
   return (
-    <div ref={containerRef} className="fixed inset-0 z-10">
+    <div 
+      ref={containerRef} 
+      className="fixed inset-0 z-10"
+      onMouseMove={handleMouseMove as any}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        perspective: '1000px',
+        transformStyle: 'preserve-3d'
+      }}
+    >
       <canvas 
         ref={canvasRef} 
         aria-label="Family Tree Canvas"
-        style={{ cursor: 'grab' }}
+        style={{ 
+          cursor: 'grab',
+          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+          transition: 'transform 0.1s ease-out',
+          transformStyle: 'preserve-3d',
+          willChange: 'transform'
+        }}
       />
     </div>
   );
