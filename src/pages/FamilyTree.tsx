@@ -1,43 +1,314 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import * as d3 from "d3";
+import { familyData, type FamilyDefinition, type FamilyNode as Node } from "../constants/family";
+
+// Constants
+const NODE_WIDTH = 100;
+const NODE_HEIGHT = 120;
+const NODE_PADDING = 8;
+const CONNECTOR_OFFSET = 20;
+const WORLD_MARGIN = 2000;
+const FIT_PADDING = 40;
+
+// Styling
+const STYLES = {
+  node: {
+    fill: "#2a2a2a",
+    textFill: "#ffffff",
+    font: "14px 'Mantinia', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+  },
+  connector: {
+    stroke: "#4a4a4a",
+    strokeWidth: 1,
+    markerSize: 4
+  }
+};
+
+// Image cache manager
+class ImageCache {
+  private cache = new Map<string, HTMLImageElement>();
+  private onUpdate: () => void;
+
+  constructor(onUpdate: () => void) {
+    this.onUpdate = onUpdate;
+  }
+
+  get(url: string): HTMLImageElement {
+    let img = this.cache.get(url);
+    if (!img) {
+      img = new Image();
+      img.src = url;
+      img.onload = this.onUpdate;
+      img.onerror = () => console.error("Failed to load image:", url);
+      this.cache.set(url, img);
+    }
+    return img;
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+// Canvas renderer class
+class CanvasRenderer {
+  private ctx: CanvasRenderingContext2D;
+  private imageCache: ImageCache;
+  private devicePixelRatio: number;
+  private connectionOffsets: Map<string, number>;
+
+  constructor(ctx: CanvasRenderingContext2D, onRedraw: () => void) {
+    this.ctx = ctx;
+    this.imageCache = new ImageCache(onRedraw);
+    this.devicePixelRatio = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    this.connectionOffsets = new Map();
+  }
+
+  // Get or create a consistent random horizontal offset for a node
+  private getNodeOffset(nodeId: string): number {
+    if (!this.connectionOffsets.has(nodeId)) {
+      this.connectionOffsets.set(nodeId, (Math.random() - 0.5) * 16);
+    }
+    return this.connectionOffsets.get(nodeId)!;
+  }
+
+  clear(width: number, height: number) {
+    this.ctx.clearRect(0, 0, width, height);
+  }
+
+  drawNode(node: Node) {
+    const { x, y, name, image } = node;
+    
+    // Draw rectangle background
+    this.ctx.fillStyle = STYLES.node.fill;
+    this.ctx.fillRect(x, y, NODE_WIDTH, NODE_HEIGHT);
+
+    // Draw image if available
+    if (image) {
+      const img = this.imageCache.get(image);
+      if (img.complete && img.naturalWidth && img.naturalHeight) {
+        this.drawCoverImage(img, x, y, NODE_WIDTH, NODE_HEIGHT);
+      }
+    }
+
+    // Draw label
+    this.ctx.fillStyle = STYLES.node.textFill;
+    this.ctx.font = STYLES.node.font;
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "top";
+    this.ctx.fillText(name, x + NODE_WIDTH / 2, y + NODE_HEIGHT + NODE_PADDING);
+  }
+
+  private drawCoverImage(img: HTMLImageElement, x: number, y: number, width: number, height: number) {
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    const rectAspect = width / height;
+    
+    let drawWidth, drawHeight, drawX, drawY;
+    
+    if (imgAspect > rectAspect) {
+      // Image is wider - fit to height, crop width
+      drawHeight = height;
+      drawWidth = height * imgAspect;
+      drawX = x + (width - drawWidth) / 2;
+      drawY = y;
+    } else {
+      // Image is taller - fit to width, crop height
+      drawWidth = width;
+      drawHeight = width / imgAspect;
+      drawX = x;
+      drawY = y + (height - drawHeight) / 2;
+    }
+    
+    this.ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+  }
+
+  drawXMarker(x: number, y: number) {
+    const size = STYLES.connector.markerSize;
+    this.ctx.strokeStyle = STYLES.connector.stroke;
+    this.ctx.lineWidth = STYLES.connector.strokeWidth;
+    
+    // Draw X shape
+    this.ctx.beginPath();
+    this.ctx.moveTo(x - size, y - size);
+    this.ctx.lineTo(x + size, y + size);
+    this.ctx.moveTo(x + size, y - size);
+    this.ctx.lineTo(x - size, y + size);
+    this.ctx.stroke();
+  }
+
+  drawConnector(family: any, nodeMap: Map<string, Node>) {
+    const p1 = nodeMap.get(family.parents[0]);
+    const p2 = nodeMap.get(family.parents[1]);
+    const children = family.children.map((id: string) => nodeMap.get(id)).filter(Boolean) as Node[];
+    
+    if (!p1 || !p2 || children.length === 0) return;
+
+    // Use stored offsets for randomization
+    const p1XOffset = this.getNodeOffset(p1.id + '_parent'); // Horizontal offset for parent 1
+    const p2XOffset = this.getNodeOffset(p2.id + '_parent'); // Horizontal offset for parent 2
+
+    // Determine which parent is on left and right
+    const leftParent = p1.x < p2.x ? p1 : p2;
+    const rightParent = p1.x < p2.x ? p2 : p1;
+    const leftOffset = p1.x < p2.x ? p1XOffset : p2XOffset;
+    const rightOffset = p1.x < p2.x ? p2XOffset : p1XOffset;
+
+    // Connection points for the LINE (at actual node edges)
+    const leftLinePoint = { 
+      x: leftParent.x + NODE_WIDTH, // Right edge of left parent
+      y: leftParent.y + NODE_HEIGHT / 2 // Center Y
+    };
+    const rightLinePoint = { 
+      x: rightParent.x, // Left edge of right parent
+      y: rightParent.y + NODE_HEIGHT / 2 // Center Y
+    };
+    
+    const midPoint = { 
+      x: (leftLinePoint.x + rightLinePoint.x) / 2, 
+      y: (leftLinePoint.y + rightLinePoint.y) / 2 
+    };
+
+    // Setup connector style - solid gray lines
+    this.ctx.strokeStyle = STYLES.connector.stroke;
+    this.ctx.lineWidth = STYLES.connector.strokeWidth;
+
+    // Draw spouse line between edges (straight line)
+    this.ctx.beginPath();
+    this.ctx.moveTo(leftLinePoint.x, leftLinePoint.y);
+    this.ctx.lineTo(rightLinePoint.x, rightLinePoint.y);
+    this.ctx.stroke();
+
+    // Draw X markers with horizontal offset from the line endpoints
+    this.drawXMarker(leftLinePoint.x + leftOffset, leftLinePoint.y);
+    this.drawXMarker(rightLinePoint.x + rightOffset, rightLinePoint.y);
+
+    // Calculate connector Y position
+    const minChildY = d3.min(children, d => d.y) || 0;
+    const connectorY = minChildY - (family.connectorYOffset ?? CONNECTOR_OFFSET);
+
+    // Draw vertical line from midpoint
+    this.ctx.beginPath();
+    this.ctx.moveTo(midPoint.x, midPoint.y);
+    this.ctx.lineTo(midPoint.x, connectorY);
+    this.ctx.stroke();
+
+    // Draw horizontal sibling connector (perfectly straight)
+    const childCentersX = children
+      .map(c => c.x + NODE_WIDTH / 2)
+      .sort((a, b) => a - b);
+
+    if (childCentersX.length > 1) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(childCentersX[0], connectorY);
+      this.ctx.lineTo(childCentersX[childCentersX.length - 1], connectorY);
+      this.ctx.stroke();
+    }
+
+    // Draw drops to each child with X markers
+    children.forEach(child => {
+      const childCenterX = child.x + NODE_WIDTH / 2;
+      const childYOffset = this.getNodeOffset(child.id + '_child'); // Vertical offset for children
+      const childTopY = child.y + childYOffset; // Top of child node with vertical randomization
+      
+      // Draw vertical line to child (straight)
+      this.ctx.beginPath();
+      this.ctx.moveTo(childCenterX, connectorY);
+      this.ctx.lineTo(childCenterX, childTopY);
+      this.ctx.stroke();
+      
+      // Draw X marker at child connection point (top of node with vertical offset)
+      this.drawXMarker(childCenterX, childTopY);
+    });
+  }
+
+  render(
+    canvasEl: HTMLCanvasElement,
+    data: FamilyDefinition,
+    nodes: Node[],
+    nodeMap: Map<string, Node>,
+    transform: d3.ZoomTransform
+  ) {
+    const pixelWidth = canvasEl.width;
+    const pixelHeight = canvasEl.height;
+
+    this.clear(pixelWidth, pixelHeight);
+
+    this.ctx.save();
+    this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio);
+    
+    // Apply transform
+    this.ctx.translate(transform.x, transform.y);
+    this.ctx.scale(transform.k, transform.k);
+
+    // Draw connectors first (behind nodes)
+    (data.families || []).forEach(family => {
+      if (family.parents.length >= 2 && family.children.length > 0) {
+        this.drawConnector(family, nodeMap);
+      }
+    });
+
+    // Draw nodes
+    nodes.forEach(node => this.drawNode(node));
+
+    this.ctx.restore();
+  }
+
+  destroy() {
+    this.imageCache.clear();
+  }
+}
 
 function FamilyTree() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rendererRef = useRef<CanvasRenderer | null>(null);
+
+  // Process data once
+  const { nodes, nodeMap, contentBounds } = useMemo(() => {
+    const processedNodes = (familyData?.nodes ?? []).map(n => ({ 
+      ...n, 
+      size: n.size ?? 80 
+    }));
+    
+    const map = new Map(processedNodes.map(n => [n.id, n] as const));
+    
+    // Calculate content bounds using D3 extent
+    const xExtent = d3.extent(processedNodes, d => d.x) as [number, number];
+    const yExtent = d3.extent(processedNodes, d => d.y) as [number, number];
+    
+    const bounds = {
+      left: xExtent[0] || 0,
+      right: (xExtent[1] || 0) + NODE_WIDTH,
+      top: yExtent[0] || 0,
+      bottom: (yExtent[1] || 0) + NODE_HEIGHT + NODE_PADDING * 2
+    };
+
+    return { 
+      nodes: processedNodes, 
+      nodeMap: map, 
+      contentBounds: bounds 
+    };
+  }, []);
 
   useEffect(() => {
     const containerEl = containerRef.current;
     const canvasEl = canvasRef.current;
     if (!containerEl || !canvasEl) return;
 
-    const ctx = canvasEl.getContext("2d") as CanvasRenderingContext2D;
+    const ctx = canvasEl.getContext("2d");
+    if (!ctx) {
+      console.error("2D context not available");
+      return;
+    }
 
-    const devicePixelRatioSafe = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    // Initialize renderer
+    const renderer = new CanvasRenderer(ctx, () => requestAnimationFrame(draw));
+    rendererRef.current = renderer;
 
-    const squareSize = 80;
-    const coupleY = 80;
-    const coupleGap = 120;
-    const childrenY = 280;
-    const sonsGap = 160;
+    const devicePixelRatio = Math.max(1, Math.floor(window.devicePixelRatio || 1));
 
-    const husbandX = 300;
-    const wifeX = husbandX + squareSize + coupleGap;
-    const son1X = 300;
-    const son2X = son1X + squareSize + sonsGap;
-
-    const nodeFill = "#2a2a2a";
-    const textFill = "#ffffff";
-    const lineStroke = "#9ca3af";
-
-    const contentBounds = {
-      left: husbandX,
-      right: Math.max(wifeX + squareSize, son2X + squareSize),
-      top: coupleY,
-      bottom: childrenY + squareSize + 24,
-    };
-
-    const transformRef = { current: d3.zoomIdentity } as { current: d3.ZoomTransform };
-    const edgePaddingPx = 24; // keep at least this many screen pixels of the content visible
+    // Transform state
+    let currentTransform = d3.zoomIdentity;
 
     function resizeCanvas() {
       const cssWidth = containerEl!.clientWidth;
@@ -45,139 +316,82 @@ function FamilyTree() {
 
       canvasEl!.style.width = `${cssWidth}px`;
       canvasEl!.style.height = `${cssHeight}px`;
-      canvasEl!.width = Math.max(1, Math.floor(cssWidth * devicePixelRatioSafe));
-      canvasEl!.height = Math.max(1, Math.floor(cssHeight * devicePixelRatioSafe));
+      canvasEl!.width = Math.max(1, Math.floor(cssWidth * devicePixelRatio));
+      canvasEl!.height = Math.max(1, Math.floor(cssHeight * devicePixelRatio));
 
       draw();
     }
 
     function draw() {
-      const pixelWidth = canvasEl!.width;
-      const pixelHeight = canvasEl!.height;
-
-      ctx.clearRect(0, 0, pixelWidth, pixelHeight);
-
-      ctx.save();
-      ctx.scale(devicePixelRatioSafe, devicePixelRatioSafe);
-      ctx.translate(transformRef.current.x, transformRef.current.y);
-      ctx.scale(transformRef.current.k, transformRef.current.k);
-
-      // lines
-      const husbandCenterX = husbandX + squareSize / 2;
-      const husbandCenterY = coupleY + squareSize / 2;
-      const wifeCenterX = wifeX + squareSize / 2;
-      const midX = (husbandCenterX + wifeCenterX) / 2;
-      const midY = husbandCenterY;
-      const connectorY = childrenY - 20;
-      const son1CenterX = son1X + squareSize / 2;
-      const son2CenterX = son2X + squareSize / 2;
-
-      ctx.strokeStyle = lineStroke;
-      ctx.lineWidth = 2;
-
-      // spouse connector
-      ctx.beginPath();
-      ctx.moveTo(husbandCenterX, midY);
-      ctx.lineTo(wifeCenterX, midY);
-      ctx.stroke();
-
-      // vertical from midpoint
-      ctx.beginPath();
-      ctx.moveTo(midX, midY);
-      ctx.lineTo(midX, connectorY);
-      ctx.stroke();
-
-      // horizontal sibling connector
-      ctx.beginPath();
-      ctx.moveTo(Math.min(son1CenterX, son2CenterX), connectorY);
-      ctx.lineTo(Math.max(son1CenterX, son2CenterX), connectorY);
-      ctx.stroke();
-
-      // drops to children
-      [son1CenterX, son2CenterX].forEach((x) => {
-        ctx.beginPath();
-        ctx.moveTo(x, connectorY);
-        ctx.lineTo(x, childrenY);
-        ctx.stroke();
-      });
-
-      // nodes
-      function drawSquareWithLabel(x: number, y: number, name: string) {
-        ctx.fillStyle = nodeFill;
-        ctx.fillRect(x, y, squareSize, squareSize);
-
-        ctx.fillStyle = textFill;
-        ctx.font = "14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.fillText(name, x + squareSize / 2, y + squareSize + 8);
-      }
-
-      drawSquareWithLabel(husbandX, coupleY, "Husband");
-      drawSquareWithLabel(wifeX, coupleY, "Wife");
-      drawSquareWithLabel(son1X, childrenY, "Son 1");
-      drawSquareWithLabel(son2X, childrenY, "Son 2");
-
-      ctx.restore();
+      renderer.render(canvasEl!, familyData, nodes, nodeMap, currentTransform);
     }
 
-    const zoomBehavior = d3
-      .zoom<HTMLCanvasElement, unknown>()
+    // Create zoom behavior using D3
+    const zoom = d3.zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.4, 4])
       .on("zoom", (event) => {
-        updateZoomExtents(event.transform.k);
-        transformRef.current = event.transform;
+        currentTransform = event.transform;
         draw();
       });
 
-    const selection = d3.select(canvasEl!);
-
-    function updateZoomExtents(k: number) {
+    // Setup zoom extents
+    function updateZoomExtents() {
       const cssWidth = containerEl!.clientWidth;
       const cssHeight = containerEl!.clientHeight;
 
-      // Expand the translate extent by the viewport size so the content edge stays visible
-      const worldEdge = edgePaddingPx / k;
-      const minX = contentBounds.left - (cssWidth / k - worldEdge);
-      const minY = contentBounds.top - (cssHeight / k - worldEdge);
-      const maxX = contentBounds.right + (cssWidth / k - worldEdge);
-      const maxY = contentBounds.bottom + (cssHeight / k - worldEdge);
+      const extentBounds: [[number, number], [number, number]] = [
+        [contentBounds.left - WORLD_MARGIN, contentBounds.top - WORLD_MARGIN],
+        [contentBounds.right + WORLD_MARGIN, contentBounds.bottom + WORLD_MARGIN]
+      ];
 
-      zoomBehavior
+      zoom
         .extent([[0, 0], [cssWidth, cssHeight]])
-        .translateExtent([[minX, minY], [maxX, maxY]]);
+        .translateExtent(extentBounds);
     }
 
-    updateZoomExtents(transformRef.current.k);
-    selection.call(zoomBehavior as any);
-
+    // Fit content to view
     function fitToView() {
       const cssWidth = containerEl!.clientWidth;
       const cssHeight = containerEl!.clientHeight;
 
       const contentWidth = contentBounds.right - contentBounds.left;
       const contentHeight = contentBounds.bottom - contentBounds.top;
-      const padding = 40;
+      
+      // Calculate scale to fit content
       const scale = Math.min(
-        (cssWidth - padding * 2) / contentWidth,
-        (cssHeight - padding * 2) / contentHeight
+        (cssWidth - FIT_PADDING * 2) / contentWidth,
+        (cssHeight - FIT_PADDING * 2) / contentHeight,
+        1 // Don't zoom in beyond 100%
       );
 
+      // Center the content
       const offsetX = (cssWidth - contentWidth * scale) / 2 - contentBounds.left * scale;
       const offsetY = (cssHeight - contentHeight * scale) / 2 - contentBounds.top * scale;
 
-      const initial = d3.zoomIdentity.translate(offsetX, offsetY).scale(scale);
-      updateZoomExtents(scale);
-      selection.call(zoomBehavior.transform as any, initial);
+      const initialTransform = d3.zoomIdentity
+        .translate(offsetX, offsetY)
+        .scale(scale);
+
+      // Set initial position immediately without transition
+      currentTransform = initialTransform;
+      selection.call(zoom.transform, initialTransform);
     }
 
+    // Initialize
+    const selection = d3.select(canvasEl);
+    selection.call(zoom);
+    
+    // Disable double-click zoom
+    selection.on("dblclick.zoom", null);
+    
     resizeCanvas();
+    updateZoomExtents();
     fitToView();
 
+    // Handle resize
     const handleResize = () => {
       resizeCanvas();
-      updateZoomExtents(transformRef.current.k);
-      fitToView();
+      updateZoomExtents();
     };
 
     window.addEventListener("resize", handleResize);
@@ -185,12 +399,17 @@ function FamilyTree() {
     return () => {
       window.removeEventListener("resize", handleResize);
       selection.on(".zoom", null);
+      renderer.destroy();
     };
-  }, []);
+  }, [nodes, nodeMap, contentBounds]);
 
   return (
-    <div ref={containerRef} className="fixed inset-0 z-0">
-      <canvas ref={canvasRef} aria-label="Family Tree Canvas" />
+    <div ref={containerRef} className="fixed inset-0 z-10">
+      <canvas 
+        ref={canvasRef} 
+        aria-label="Family Tree Canvas"
+        style={{ cursor: 'grab' }}
+      />
     </div>
   );
 }
