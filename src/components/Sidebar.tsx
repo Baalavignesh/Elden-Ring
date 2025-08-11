@@ -53,7 +53,7 @@ function Sidebar({ isOpen, onClose }: SidebarProps) {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 120, duration: 1.2 }}
-            className="fixed left-0 top-0 h-full w-[40%] bg-black z-[200] flex flex-col mt-8"
+            className="fixed left-0 top-0 h-full w-[40%] bg-black z-[200] flex flex-col pt-8"
           >
             {/* Fixed Header with Close button */}
             <div className="flex-shrink-0 h-20 flex items-center justify-end px-12 bg-black z-[210] relative">

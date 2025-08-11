@@ -19,8 +19,8 @@ function VideoBackground({ tilt }: VideoBackgroundProps) {
     <div 
       className="fixed inset-0 overflow-hidden z-0"
       style={{
-        transform: `translateX(${-tilt.y * 0.5}px) translateY(${tilt.x * 0.3}px) scale(${1 + Math.abs(tilt.z) * 0.0002})`,
-        transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        transform: `translateX(${-tilt.y * 0.3}px) translateY(${tilt.x * 0.2}px)`,
+        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         transformOrigin: 'center center'
       }}
     >
@@ -41,12 +41,9 @@ function VideoBackground({ tilt }: VideoBackgroundProps) {
         <source src="/assets/background.mp4" type="video/mp4" />
         Your browser does not support the video tag.
       </video>
-      {/* Dynamic overlay that changes based on tilt for atmospheric effect */}
+      {/* Static overlay for consistent performance */}
       <div 
-        className="absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at ${50 + tilt.y * 0.5}% ${50 - tilt.x * 0.5}%, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 100%)`
-        }}
+        className="absolute inset-0 bg-black/30"
       />
     </div>
   );

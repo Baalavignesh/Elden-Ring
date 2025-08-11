@@ -74,7 +74,7 @@ function AudioVisualizer() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, bars]);
+  }, [isPlaying]);
 
   // Force auto-play music when component mounts
   useEffect(() => {
