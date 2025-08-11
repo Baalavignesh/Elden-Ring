@@ -24,6 +24,16 @@ function Navbar() {
             >
                 ELDEN RING
             </motion.h1>
+            
+            {/* Elden Ring Logo - top right */}
+            <div className="absolute top-12 right-12 opacity-0 animate-fade-in">
+                <img 
+                    src="/assets/logo.webp" 
+                    alt="Elden Ring Logo"
+                    className="w-12 h-12 object-contain opacity-60 z-50"
+                    
+                />
+            </div>
         </motion.header>
     )
 }

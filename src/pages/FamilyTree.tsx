@@ -665,11 +665,11 @@ function FamilyTree() {
       const contentWidth = contentBounds.right - contentBounds.left;
       const contentHeight = contentBounds.bottom - contentBounds.top;
       
-      // Calculate scale to fit content
+      // Calculate scale to fit content (more zoomed out)
       const scale = Math.min(
         (cssWidth - FIT_PADDING * 2) / contentWidth,
         (cssHeight - FIT_PADDING * 2) / contentHeight,
-        1 // Don't zoom in beyond 100%
+        0.7 // Start at 70% zoom for more zoomed out view
       );
 
       // Center the content

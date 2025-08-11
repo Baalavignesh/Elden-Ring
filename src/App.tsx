@@ -1,21 +1,39 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "motion/react"
 import FamilyTree from "./pages/FamilyTree"
 import Navbar from "./components/Navbar"
 import ParticlesBackground from "./components/ParticlesBackground"
+import VideoBackground from "./components/VideoBackground"
+import AudioVisualizer from "./components/AudioVisualizer"
 import Sidebar from "./components/Sidebar"
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  // Toggle between video and particles background
+  const [useVideoBackground, setUseVideoBackground] = useState(true)
 
   const handleMenuClick = () => {
     console.log("Menu button clicked!")
     setSidebarOpen(true)
   }
 
+  // Add keyboard shortcut to toggle background (B key)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'b') {
+        setUseVideoBackground(prev => !prev)
+        console.log(`Switched to ${!useVideoBackground ? 'video' : 'particles'} background`)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [useVideoBackground])
+
   return (
     <div className="min-h-screen text-white flex flex-col relative">
-      <ParticlesBackground />
+      {/* Background - toggle between video and particles */}
+      {useVideoBackground ? <VideoBackground /> : <ParticlesBackground />}
       
       {/* Hamburger Menu Button */}
       {!sidebarOpen && (
@@ -43,6 +61,9 @@ function App() {
       <main className="flex-1 relative">
         <FamilyTree />
       </main>
+      
+      {/* Audio Visualizer */}
+      <AudioVisualizer />
     </div>
   )
 }
