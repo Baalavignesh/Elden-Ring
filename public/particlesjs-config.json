@@ -30,7 +30,7 @@
       "random": true,
       "anim": {
         "enable": true,
-        "speed": 1,
+        "speed": 0.4,
         "opacity_min": 0,
         "sync": false
       }
@@ -39,8 +39,8 @@
       "value": 1.5,
       "random": true,
       "anim": {
-        "enable": false,
-        "speed": 4,
+        "enable": true,
+        "speed": 0.4,
         "size_min": 0.3,
         "sync": false
       }
@@ -54,7 +54,7 @@
     },
     "move": {
       "enable": true,
-      "speed": 1,
+      "speed": 0.4,
       "direction": "none",
       "random": true,
       "straight": false,
@@ -92,7 +92,7 @@
         "size": 0,
         "duration": 2,
         "opacity": 0,
-        "speed": 3
+        "speed": 0.4
       },
       "repulse": {
         "distance": 400,
