@@ -487,14 +487,18 @@ class CanvasRenderer {
   }
 }
 
-function FamilyTree() {
+interface FamilyTreeProps {
+  onTiltChange?: (tilt: { x: number; y: number; z: number }) => void;
+}
+
+function FamilyTree({ onTiltChange }: FamilyTreeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CanvasRenderer | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   
-  // State for 3D tilt effect
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  // State for enhanced 3D tilt effect
+  const [tilt, setTilt] = useState({ x: 0, y: 0, z: 0 });
 
   // Handle mouse movement for 3D tilt effect
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -516,22 +520,36 @@ function FamilyTree() {
       const normalizedX = (mouseX - centerX) / centerX;
       const normalizedY = (mouseY - centerY) / centerY;
       
-      // Apply tilt (max 2 degrees for very subtle effect)
-      const maxTilt = 2;
-      setTilt({
-        x: -normalizedY * maxTilt, // Negative for natural tilt direction
-        y: normalizedX * maxTilt
-      });
+      // Apply enhanced 3D tilt effect (max 12 degrees for dramatic effect)
+      const maxTilt = 12;
+      const maxDepth = 100; // Z-axis translation in pixels
+      
+      // Calculate tilt intensity based on distance from center
+      const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+      const tiltMultiplier = Math.min(distanceFromCenter * 1.2, 1); // Increase sensitivity
+      
+      const newTilt = {
+        x: -normalizedY * maxTilt * tiltMultiplier, // Negative for natural tilt direction
+        y: normalizedX * maxTilt * tiltMultiplier,
+        z: distanceFromCenter * maxDepth // Z-axis depth movement
+      };
+      
+      setTilt(newTilt);
+      // Notify parent component for environmental integration
+      onTiltChange?.(newTilt);
     });
-  }, []);
+  }, [onTiltChange]);
 
   // Reset tilt when mouse leaves
   const handleMouseLeave = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-    setTilt({ x: 0, y: 0 });
-  }, []);
+    const resetTilt = { x: 0, y: 0, z: 0 };
+    setTilt(resetTilt);
+    // Notify parent component
+    onTiltChange?.(resetTilt);
+  }, [onTiltChange]);
 
   // Process data once
   const { nodes, nodeMap, contentBounds } = useMemo(() => {
@@ -726,7 +744,7 @@ function FamilyTree() {
       onMouseMove={handleMouseMove as any}
       onMouseLeave={handleMouseLeave}
       style={{
-        perspective: '1000px',
+        perspective: '1200px', // Increased perspective for stronger 3D effect
         transformStyle: 'preserve-3d'
       }}
       initial={{ opacity: 0, scale: 0.5 }}
@@ -737,15 +755,51 @@ function FamilyTree() {
         delay: 0.5
       }}
     >
+      {/* Atmospheric depth layers */}
+      
+      {/* Background atmospheric glow */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse 800px 600px at ${50 - tilt.y * 0.3}% ${50 + tilt.x * 0.3}%, rgba(139, 69, 19, 0.03) 0%, transparent 50%)`,
+          transform: `translateZ(-50px) scale(1.1)`,
+          transformStyle: 'preserve-3d',
+          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      />
+      
+      {/* Front glass morphism overlay */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.001) 100%)',
+          backdropFilter: 'blur(0.5px)',
+          border: '1px solid rgba(255,255,255,0.03)',
+          borderRadius: '12px',
+          transform: `translateZ(100px) rotateX(${tilt.x * 0.5}deg) rotateY(${tilt.y * 0.5}deg)`,
+          transformStyle: 'preserve-3d',
+          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          opacity: Math.abs(tilt.x) + Math.abs(tilt.y) > 1 ? 0.6 : 0.2
+        }}
+      />
+      
+      {/* Main canvas with enhanced 3D effects */}
       <motion.canvas 
         ref={canvasRef} 
         aria-label="Family Tree Canvas"
         style={{ 
           cursor: 'default',
-          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
-          transition: 'transform 0.1s ease-out',
+          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) translateZ(${tilt.z}px)`,
+          transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)', // Smoother, premium easing
           transformStyle: 'preserve-3d',
-          willChange: 'transform'
+          willChange: 'transform',
+          filter: `
+            drop-shadow(${tilt.y * 2}px ${tilt.x * 3 + 20}px ${Math.abs(tilt.z) * 0.3 + 30}px rgba(0, 0, 0, 0.4)) 
+            drop-shadow(${tilt.y * 0.5}px ${tilt.x * 1 + 5}px ${Math.abs(tilt.z) * 0.1 + 10}px rgba(0, 0, 0, 0.2))
+            brightness(${1 + Math.abs(tilt.x + tilt.y) * 0.01})
+            contrast(${1 + Math.abs(tilt.z) * 0.0005})
+          `,
+          borderRadius: '8px'
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -755,6 +809,17 @@ function FamilyTree() {
           delay: 1.2
         }}
       />
+      
+      {/* Subtle vignette effect that responds to tilt */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse 70% 60% at ${50 + tilt.y * 0.2}% ${50 - tilt.x * 0.2}%, transparent 40%, rgba(0,0,0,${0.1 + Math.abs(tilt.x + tilt.y) * 0.005}) 100%)`,
+          borderRadius: '12px',
+          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      />
+      
     </motion.div>
   );
 }

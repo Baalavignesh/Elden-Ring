@@ -4,6 +4,7 @@ import FamilyTree from "./pages/FamilyTree"
 import Navbar from "./components/Navbar"
 import ParticlesBackground from "./components/ParticlesBackground"
 import VideoBackground from "./components/VideoBackground"
+import FluidBackground from "./components/FluidBackground"
 import AudioVisualizer from "./components/AudioVisualizer"
 import Sidebar from "./components/Sidebar"
 
@@ -11,6 +12,10 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   // Toggle between video and particles background
   const [useVideoBackground, setUseVideoBackground] = useState(true)
+  // 3D tilt state for environmental integration
+  const [globalTilt, setGlobalTilt] = useState({ x: 0, y: 0, z: 0 })
+  // Mouse position for fluid effects
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
   const handleMenuClick = () => {
     console.log("Menu button clicked!")
@@ -30,10 +35,23 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [useVideoBackground])
 
+  // Track global mouse position for fluid effects
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+
+    window.addEventListener('mousemove', handleGlobalMouseMove)
+    return () => window.removeEventListener('mousemove', handleGlobalMouseMove)
+  }, [])
+
   return (
     <div className="min-h-screen text-white flex flex-col relative">
-      {/* Background - toggle between video and particles */}
-      {useVideoBackground ? <VideoBackground /> : <ParticlesBackground />}
+      {/* Background layers */}
+      {useVideoBackground ? <VideoBackground tilt={globalTilt} /> : <ParticlesBackground />}
+      
+      {/* Fluid oil/water effect layer */}
+      <FluidBackground mousePosition={mousePosition} tilt={globalTilt} />
       
       {/* Hamburger Menu Button */}
       {!sidebarOpen && (
@@ -59,7 +77,7 @@ function App() {
       
       <Navbar />
       <main className="flex-1 relative">
-        <FamilyTree />
+        <FamilyTree onTiltChange={setGlobalTilt} />
       </main>
       
       {/* Audio Visualizer */}
