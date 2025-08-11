@@ -7,8 +7,8 @@ function AudioVisualizer() {
   const [bars, setBars] = useState<number[]>(Array(6).fill(0.3)); // 5 bars with initial height
   
   // Animation refs
-  const animationRef = useRef<number>();
-  const startTimeRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
+  const startTimeRef = useRef<number | undefined>(undefined);
   const barConfigsRef = useRef<Array<{
     frequency: number;
     phase: number;
@@ -35,11 +35,11 @@ function AudioVisualizer() {
         startTimeRef.current = currentTime;
       }
 
-      const elapsed = (currentTime - startTimeRef.current) / 1000; // Convert to seconds
+      const elapsed = (currentTime - (startTimeRef.current || 0)) / 1000; // Convert to seconds
       
       if (isPlaying) {
         // Calculate smooth sine wave heights for each bar
-        const newHeights = barConfigsRef.current.map((config, index) => {
+        const newHeights = barConfigsRef.current.map((config) => {
           const sineValue = Math.sin(elapsed * config.frequency + config.phase);
           const randomNoise = (Math.random() - 0.5) * 0.05; // Small random variation
           const height = Math.max(0.2, Math.min(1.0, 
@@ -51,7 +51,7 @@ function AudioVisualizer() {
         setBars(newHeights);
       } else {
         // Smoothly return to static positions when paused
-        setBars(prev => prev.map((current, index) => {
+        setBars(prev => prev.map((current) => {
           const target = 0.3;
           const diff = target - current;
           return current + diff * 0.05; // Gradual transition to static height

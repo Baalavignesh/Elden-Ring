@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import * as d3 from "d3";
 import { motion } from "motion/react";
 import { familyData, type FamilyDefinition, type FamilyNode as Node } from "../constants/family";
