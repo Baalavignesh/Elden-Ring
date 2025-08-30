@@ -4,7 +4,6 @@ import Navbar from "../components/Navbar";
 import AudioVisualizer from "../components/AudioVisualizer";
 import Sidebar from "../components/Sidebar";
 import VideoBackground from "../components/VideoBackground";
-import LightRays from "../../background/Iridescence/Iridescence";
 import { useEffect, useState } from "react";
 
 const Family = () => {
