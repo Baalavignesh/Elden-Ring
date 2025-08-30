@@ -76,7 +76,7 @@ function AudioVisualizer() {
     };
   }, [isPlaying]);
 
-  // Force auto-play music when component mounts
+  // Auto-play music when component mounts with a delay
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -87,7 +87,10 @@ function AudioVisualizer() {
         audio.volume = 0.3;
         audio.muted = false;
         
-        console.log('Attempting to force auto-play music...');
+        console.log('Attempting to auto-play music after delay...');
+        
+        // Wait 3 seconds for click sound to finish
+        await new Promise(resolve => setTimeout(resolve, 3000));
         
         // Force play with multiple attempts
         let playAttempts = 0;
@@ -173,7 +176,6 @@ function AudioVisualizer() {
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        autoPlay
         loop
         preload="auto"
         muted={false}

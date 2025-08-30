@@ -58,7 +58,10 @@ const Family = () => {
     }, []);
 
   return (
-    <div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1 }}>
       {/* Video Background */}
       <VideoBackground tilt={globalTilt} />
 
@@ -98,7 +101,7 @@ const Family = () => {
 
       {/* Audio Visualizer */}
       <AudioVisualizer />
-    </div>
+    </motion.div>
   );
 };
 
