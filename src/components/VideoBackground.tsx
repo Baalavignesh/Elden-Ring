@@ -17,7 +17,7 @@ function VideoBackground({ tilt }: VideoBackgroundProps) {
 
   return (
     <div 
-      className="fixed inset-0 overflow-hidden z-0"
+      className="fixed inset-0 overflow-hidden z-0 opacity-100"
       style={{
         transform: `translateX(${-tilt.y * 0.3}px) translateY(${tilt.x * 0.2}px)`,
         transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',

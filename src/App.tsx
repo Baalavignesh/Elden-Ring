@@ -1,111 +1,19 @@
-import { useState, useEffect } from "react"
-import { motion } from "motion/react"
-import FamilyTree from "./pages/FamilyTree"
-import Navbar from "./components/Navbar"
-import AudioVisualizer from "./components/AudioVisualizer"
-import Sidebar from "./components/Sidebar"
-import LightRays from '../background/Iridescence/Iridescence';
+import { Routes, Route } from "react-router-dom";
+import Welcome from "./pages/Welcome";
+import Family from "./pages/Family";
+
 
 function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  // Using Iridescence background
-  // 3D tilt state for environmental integration
-  const [globalTilt, setGlobalTilt] = useState({ x: 0, y: 0, z: 0 })
-
-  const handleMenuClick = () => {
-    console.log("Menu button clicked!")
-    setSidebarOpen(true)
-  }
-
-  // Using Iridescence background - no toggle needed
-
-  // Track global mouse position for tilt effect (no throttling)
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      // Calculate global tilt based on full screen dimensions
-      const centerX = window.innerWidth / 2
-      const centerY = window.innerHeight / 2
-      
-      const normalizedX = (e.clientX - centerX) / centerX
-      const normalizedY = (e.clientY - centerY) / centerY
-      
-      // Apply enhanced 3D tilt effect (max 10 degrees)
-      const maxTilt = 10
-      const maxDepth = 90
-      
-      const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY)
-      const tiltMultiplier = Math.min(distanceFromCenter * 1.2, 1)
-      
-      const newTilt = {
-        x: -normalizedY * maxTilt * tiltMultiplier,
-        y: normalizedX * maxTilt * tiltMultiplier,
-        z: distanceFromCenter * maxDepth
-      }
-      
-      setGlobalTilt(newTilt)
-    }
-
-    const handleGlobalMouseLeave = () => {
-      setGlobalTilt({ x: 0, y: 0, z: 0 })
-    }
-
-    window.addEventListener('mousemove', handleGlobalMouseMove)
-    window.addEventListener('mouseleave', handleGlobalMouseLeave)
-    return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove)
-      window.removeEventListener('mouseleave', handleGlobalMouseLeave)
-    }
-  }, [])
+ 
 
   return (
     <div className="min-h-screen text-white flex flex-col relative">
-      {/* Iridescence background */}
-      <div className="fixed inset-0 z-0">
-      <LightRays
-    raysOrigin="top-center"
-    raysColor="#fcb228"
-    raysSpeed={.1}
-    lightSpread={1.2}
-    rayLength={2}
-    followMouse={true}
-    mouseInfluence={0.1}
-    fadeDistance={2}
-    noiseAmount={1}
-    distortion={0.2}
-    className="custom-rays"
-  />     </div>
-      
-      {/* Hamburger Menu Button */}
-      {!sidebarOpen && (
-        <motion.button
-          onClick={handleMenuClick}
-          className="fixed top-12 left-12 z-[60] text-white/60 hover:text-white transition-colors p-2 pointer-events-auto"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ delay: 1, duration: 0.5 }}
-          aria-label="Open menu"
-          style={{ pointerEvents: 'auto' }}
-        >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-        </motion.button>
-      )}
-
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
-      <Navbar />
-      <main className="flex-1 relative">
-        <FamilyTree tilt={globalTilt} />
-      </main>
-      
-      {/* Audio Visualizer */}
-      <AudioVisualizer />
+        <Routes>
+          <Route path="/" element={<Welcome />} />
+          <Route path="/familytree" element={<Family />} />
+        </Routes>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

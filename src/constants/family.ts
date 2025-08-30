@@ -23,7 +23,7 @@ export const familyData: FamilyDefinition = {
     
     // Generation 2 - Main children (y: 300)
     { id: "ranni", name: "ranni", x: 50, y: 300, size: 80, image: "/assets/ranni.png" },
-    { id: "rykard", name: "rykard", x: 200, y: 300, size: 80, image: "/assets/rykard.png" },
+    { id: "rykard", name: "rykard", x: 200, y: 480, size: 80, image: "/assets/rykard.png" },
     { id: "radahn", name: "general radahn", x: 350, y: 300, size: 80, image: "/assets/radahn.png" },
     { id: "miquella", name: "miquella", x: 800, y: 300, size: 80, image: "/assets/miquella.png" },
     { id: "melina", name: "melina", x: 950, y: 300, size: 80, image: "/assets/melina.png" },
@@ -34,8 +34,8 @@ export const familyData: FamilyDefinition = {
     
     // Secondary couples (moved down)
     { id: "tanith", name: "tanith", x: 100, y: 480, size: 80, image: "/assets/tanith.png" },
-    { id: "malenia", name: "malenia", x: 620, y: 500, size: 80, image: "/assets/malenia.png" },
-    { id: "unknown_husband", name: "unknown", x: 800, y: 500, size: 80 },
+    { id: "malenia", name: "malenia", x: 620, y: 300, size: 80, image: "/assets/malenia.png" },
+    { id: "unknown_husband", name: "unknown", x: 480, y: 300, size: 80 },
     
     // Their children (y: 700)
     { id: "rya", name: "rya", x: 150, y: 650, size: 80, image: "/assets/rya.png" },
@@ -49,7 +49,7 @@ export const familyData: FamilyDefinition = {
   ],
   families: [
     { parents: ["radagon", "rennala"], children: ["ranni", "rykard", "radahn"], connectorYOffset: 20 },
-    { parents: ["radagon", "marika"], children: ["malenia", "miquella", "melina"], connectorYOffset: 20 },
+    { parents: ["radagon", "marika"], children: ["miquella","malenia", "melina"], connectorYOffset: 20 },
     { parents: ["marika", "godfrey"], children: ["morgott", "mogh", "godwyn"], connectorYOffset: 20 },
     { parents: ["godfrey", "unknown_wife_godfrey"], children: ["nepheli"], connectorYOffset: 20 },
     { parents: ["godwyn"], children: ["godrick", "godefroy"], connectorYOffset: 20 },

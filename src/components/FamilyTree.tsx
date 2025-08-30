@@ -15,8 +15,8 @@ const FIT_PADDING = 40;
 const STYLES = {
   node: {
     fill: "#2a2a2a",
-    textFill: "#666666", // Changed to gray for less brightness
-    font: "14px 'Mantinia', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+    textFill: "#cccccc", // Changed to much brighter white/gray
+    font: "16px 'Mantinia', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
   },
   connector: {
     stroke: "#4a4a4a",
@@ -203,9 +203,9 @@ class CanvasRenderer {
     // Draw label (no scaling/brightness for text)
     this.ctx.fillStyle = STYLES.node.textFill;
     this.ctx.font = STYLES.node.font;
-    this.ctx.textAlign = "center";
+    this.ctx.textAlign = "left";
     this.ctx.textBaseline = "top";
-    this.ctx.fillText(name, x + NODE_WIDTH / 2, y + NODE_HEIGHT + NODE_PADDING);
+    this.ctx.fillText(name, x, y + NODE_HEIGHT + NODE_PADDING);
   }
 
   private drawCoverImage(img: HTMLImageElement, x: number, y: number, width: number, height: number) {
@@ -361,11 +361,11 @@ class CanvasRenderer {
       this.drawXMarker(midPoint.x + p1XOffset, midPoint.y);
     }
 
-    // RED PATTERN: Draw vertical line from parent midpoint down to main children's connector level
+    // Draw vertical line from parent midpoint down to main children's connector level
     this.drawChalkLine(midPoint.x, midPoint.y, midPoint.x, connectorY, 
       `vertical-${p1.id}${p2 ? '-' + p2.id : ''}`);
 
-    // RED PATTERN: Draw horizontal line connecting main level siblings
+    // Draw horizontal line connecting main level siblings
     if (mainLevelChildren.length > 1) {
       const mainChildCentersX = mainLevelChildren
         .map(c => c.x + NODE_WIDTH / 2)
@@ -373,6 +373,21 @@ class CanvasRenderer {
       
       this.drawChalkLine(mainChildCentersX[0], connectorY, mainChildCentersX[mainChildCentersX.length - 1], connectorY,
         `main-sibling-${mainLevelChildren[0].id}-${mainLevelChildren[mainLevelChildren.length - 1].id}`);
+    }
+    
+    // Check if we need to extend vertical line further down for lower children like Rykard
+    const lowerChildrenInBetween = otherLevelChildren.filter(child => {
+      const childCenterX = child.x + NODE_WIDTH / 2;
+      return mainLevelChildren.length > 1 && 
+        childCenterX >= Math.min(...mainLevelChildren.map(c => c.x)) &&
+        childCenterX <= Math.max(...mainLevelChildren.map(c => c.x + NODE_WIDTH));
+    });
+    
+    // If we have lower children between siblings, extend the vertical line from the connector down
+    if (lowerChildrenInBetween.length > 0) {
+      const lowestY = Math.max(...lowerChildrenInBetween.map(c => c.y - (family.connectorYOffset ?? CONNECTOR_OFFSET)));
+      this.drawChalkLine(midPoint.x, connectorY, midPoint.x, lowestY,
+        `vertical-extension-${p1.id}${p2 ? '-' + p2.id : ''}`);
     }
 
     // RED PATTERN: Draw drops from horizontal connector to main level children
@@ -387,53 +402,47 @@ class CanvasRenderer {
       this.drawXMarker(childCenterX, childTopY);
     });
 
-    // RED PATTERN: For children at other levels, single vertical drop from horizontal connector
+    // For children at other levels (like Rykard), connect from the main horizontal line
     if (otherLevelChildren.length > 0) {
-      // Group by Y level
-      const levelGroups = new Map<number, Node[]>();
       otherLevelChildren.forEach(child => {
-        if (!levelGroups.has(child.y)) {
-          levelGroups.set(child.y, []);
-        }
-        levelGroups.get(child.y)!.push(child);
-      });
-
-      levelGroups.forEach((levelChildren, yLevel) => {
-        const levelConnectorY = yLevel - (family.connectorYOffset ?? CONNECTOR_OFFSET);
+        const childCenterX = child.x + NODE_WIDTH / 2;
+        const childYOffset = this.getNodeOffset(child.id + '_child');
+        const childTopY = child.y + childYOffset;
         
-        // Calculate the midpoint X of children at this level
-        const levelMidX = levelChildren.reduce((sum, c) => sum + c.x + NODE_WIDTH / 2, 0) / levelChildren.length;
+        // Check if this child is positioned between siblings at the main level
+        const isInBetween = mainLevelChildren.length > 1 && 
+          childCenterX >= Math.min(...mainLevelChildren.map(c => c.x)) &&
+          childCenterX <= Math.max(...mainLevelChildren.map(c => c.x + NODE_WIDTH));
         
-        // Draw single vertical drop from main horizontal connector
-        this.drawChalkLine(midPoint.x, connectorY, midPoint.x, levelConnectorY,
-          `level-drop-${yLevel}`);
-        
-        // Draw horizontal line to the level midpoint
-        this.drawChalkLine(midPoint.x, levelConnectorY, levelMidX, levelConnectorY,
-          `level-horizontal-${yLevel}`);
-        
-        // Draw horizontal connector for siblings at this level (if multiple)
-        if (levelChildren.length > 1) {
-          const levelChildCentersX = levelChildren
-            .map(c => c.x + NODE_WIDTH / 2)
-            .sort((a, b) => a - b);
+        if (isInBetween) {
+          // For Rykard case: need intermediate connector
+          const childConnectorY = child.y - (family.connectorYOffset ?? CONNECTOR_OFFSET);
           
-          this.drawChalkLine(levelChildCentersX[0], levelConnectorY, 
-            levelChildCentersX[levelChildCentersX.length - 1], levelConnectorY,
-            `level-sibling-${levelChildren[0].id}-${levelChildren[levelChildren.length - 1].id}`);
-        }
-        
-        // Draw drops to individual children at this level
-        levelChildren.forEach(child => {
-          const childCenterX = child.x + NODE_WIDTH / 2;
-          const childYOffset = this.getNodeOffset(child.id + '_child');
-          const childTopY = child.y + childYOffset;
+          // Draw horizontal line at Rykard's level from parent vertical to his position
+          this.drawChalkLine(midPoint.x, childConnectorY, childCenterX, childConnectorY,
+            `rykard-horizontal-${child.id}`);
           
-          this.drawChalkLine(childCenterX, levelConnectorY, childCenterX, childTopY,
+          // Drop from that horizontal to Rykard
+          this.drawChalkLine(childCenterX, childConnectorY, childCenterX, childTopY,
             `drop-${child.id}`);
+        } else {
+          // For children outside the main sibling range, draw angled connection
+          const childConnectorY = child.y - (family.connectorYOffset ?? CONNECTOR_OFFSET);
           
-          this.drawXMarker(childCenterX, childTopY);
-        });
+          // Vertical drop from parent
+          this.drawChalkLine(midPoint.x, connectorY, midPoint.x, childConnectorY,
+            `level-drop-${child.id}`);
+          
+          // Horizontal to child position
+          this.drawChalkLine(midPoint.x, childConnectorY, childCenterX, childConnectorY,
+            `level-horizontal-${child.id}`);
+          
+          // Drop to child
+          this.drawChalkLine(childCenterX, childConnectorY, childCenterX, childTopY,
+            `drop-${child.id}`);
+        }
+        
+        this.drawXMarker(childCenterX, childTopY);
       });
     }
   }
@@ -573,6 +582,7 @@ function FamilyTree({ tilt }: FamilyTreeProps) {
       }
     }
 
+
     function handleCanvasMouseMove(event: MouseEvent) {
       const rect = canvasEl!.getBoundingClientRect();
       const mouseX = event.clientX - rect.left;
@@ -667,6 +677,7 @@ function FamilyTree({ tilt }: FamilyTreeProps) {
       resizeCanvas();
       updateZoomExtents();
     };
+
 
     window.addEventListener("resize", handleResize);
     canvasEl.addEventListener("mousemove", handleCanvasMouseMove);
